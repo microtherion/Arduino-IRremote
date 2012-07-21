@@ -11,6 +11,8 @@
  * Also influenced by http://zovirl.com/2008/11/12/building-a-universal-remote-with-an-arduino/
  *
  * JVC and Panasonic protocol added by Kristian Lauszus (Thanks to zenwheel and other people at the original blog post)
+ *
+ * Protocol for Cisco 8685DVB added by Matthias Neeracher.
  */
 
 #ifndef IRremoteint_h
@@ -133,6 +135,14 @@
 #define JVC_ONE_SPACE 1600
 #define JVC_ZERO_SPACE 550
 #define JVC_RPT_LENGTH 60000
+
+#define CISCO_HDR_MARK 	450
+#define CISCO_HDR_SPACE 210
+#define CISCO_MARK		210
+#define CISCO_00_SPACE	220
+#define CISCO_01_SPACE	380
+#define CISCO_10_SPACE	540
+#define CISCO_11_SPACE	700
 
 #define SHARP_BITS 15
 #define DISH_BITS 16

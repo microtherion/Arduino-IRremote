@@ -9,6 +9,8 @@
  * Also influenced by http://zovirl.com/2008/11/12/building-a-universal-remote-with-an-arduino/
  *
  * JVC and Panasonic protocol added by Kristian Lauszus (Thanks to zenwheel and other people at the original blog post)
+ *
+ * Protocol for Cisco 8685DVB added by Matthias Neeracher.
  */
 
 #ifndef IRremote_h
@@ -42,6 +44,7 @@ public:
 #define SHARP 6
 #define PANASONIC 7
 #define JVC 8
+#define CISCO 9
 #define UNKNOWN -1
 
 // Decoded value for NEC when a repeat code is received
@@ -65,6 +68,7 @@ private:
   long decodeRC6(decode_results *results);
   long decodePanasonic(decode_results *results);
   long decodeJVC(decode_results *results);
+  long decodeCisco(decode_results *results);
   long decodeHash(decode_results *results);
   int compare(unsigned int oldval, unsigned int newval);
 
@@ -91,6 +95,7 @@ public:
   void sendSharp(unsigned long data, int nbits);
   void sendPanasonic(unsigned int address, unsigned long data);
   void sendJVC(unsigned long data, int nbits, int repeat); // *Note instead of sending the REPEAT constant if you want the JVC repeat signal sent, send the original code value and change the repeat argument from 0 to 1. JVC protocol repeats by skipping the header NOT by sending a separate code value like NEC does.
+  void sendCisco(unsigned long data, int nbits);
   // private:
   void enableIROut(int khz);
   VIRTUAL void mark(int usec);
