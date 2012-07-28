@@ -136,13 +136,10 @@
 #define JVC_ZERO_SPACE 550
 #define JVC_RPT_LENGTH 60000
 
-#define CISCO_HDR_MARK 	450
-#define CISCO_HDR_SPACE 210
-#define CISCO_MARK		210
-#define CISCO_00_SPACE	220
-#define CISCO_01_SPACE	380
-#define CISCO_10_SPACE	540
-#define CISCO_11_SPACE	700
+#define RCMM_HDR_MARK 	417
+#define RCMM_MARK		149 // Protocol says 167, but in practice we often seem to be short
+#define RCMM_SPACE  	277
+#define RCMM_INCREMENT	167
 
 #define SHARP_BITS 15
 #define DISH_BITS 16
@@ -188,7 +185,7 @@ extern volatile irparams_t irparams;
 #define MARK  0
 #define SPACE 1
 
-#define TOPBIT 0x80000000
+#define TOPBIT 	 0x80000000
 
 #define NEC_BITS 32
 #define SONY_BITS 12
@@ -196,9 +193,7 @@ extern volatile irparams_t irparams;
 #define MIN_RC6_SAMPLES 1
 #define PANASONIC_BITS 48
 #define JVC_BITS 16
-
-
-
+#define RCMM_BITS 12
 
 // defines for timer2 (8 bits)
 #if defined(IR_USE_TIMER2)
