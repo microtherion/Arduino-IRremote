@@ -169,6 +169,7 @@ void IRsend::sendRC6(unsigned long data, int nbits)
   }
   space(0); // Turn off at end
 }
+
 void IRsend::sendPanasonic(unsigned int address, unsigned long data) {
     enableIROut(35);
     mark(PANASONIC_HDR_MARK);
@@ -196,6 +197,7 @@ void IRsend::sendPanasonic(unsigned int address, unsigned long data) {
     mark(PANASONIC_BIT_MARK);
     space(0);
 }
+
 void IRsend::sendJVC(unsigned long data, int nbits, int repeat)
 {
     enableIROut(38);
@@ -218,6 +220,23 @@ void IRsend::sendJVC(unsigned long data, int nbits, int repeat)
     mark(JVC_BIT_MARK);
     space(0);
 }
+
+// Caller needs to take care of flipping the toggle bit
+void IRsend::sendRCMM(unsigned long data, int nbits)
+{
+	enableIROut(36);
+    data = data << (32 - nbits);
+	mark(RCMM_HDR_MARK);
+	space(RCMM_SPACE);
+	for (int i = 0; i < nbits; i += 2) {
+		mark(RCMM_MARK);
+		space(RCMM_SPACE+(data >> 30)*RCMM_INCREMENT);
+		data <<= 2;
+	}
+	mark(RCMM_MARK);
+	space(0);
+}
+
 void IRsend::mark(int time) {
   // Sends an IR mark for the specified number of microseconds.
   // The mark output is modulated at the PWM frequency.
@@ -422,6 +441,12 @@ int IRrecv::decode(decode_results *results) {
     Serial.println("Attempting JVC decode");
 #endif 
     if (decodeJVC(results)) {
+        return DECODED;
+    }
+#ifdef DEBUG
+    Serial.println("Attempting RCMM decode");
+#endif 
+    if (decodeRCMM(results)) {
         return DECODED;
     }
   // decodeHash returns a hash on any input.
@@ -737,6 +762,59 @@ long IRrecv::decodeJVC(decode_results *results) {
     results->value = data;
     results->decode_type = JVC;
     return DECODED;
+}
+
+long IRrecv::decodeRCMM(decode_results *results) {
+  long data = 0;
+  if (irparams.rawlen < RCMM_BITS + 4) {
+    return ERR;
+  }
+  int offset = 1; // Skip first space
+  // Initial mark
+  if (!MATCH_MARK(results->rawbuf[offset], RCMM_HDR_MARK)) {
+    return ERR;
+  }
+  offset++;
+  if (!MATCH_SPACE(results->rawbuf[offset], RCMM_SPACE)) {
+    return ERR;
+  }
+  offset++;
+
+  while (offset + 1 < irparams.rawlen) {
+    if (!MATCH_MARK(results->rawbuf[offset], RCMM_MARK)) {
+      return ERR;
+    }
+    offset++;
+    if (MATCH_SPACE(results->rawbuf[offset], RCMM_SPACE)) {
+		data = (data << 2) | 0;
+    } 
+    else if (MATCH_SPACE(results->rawbuf[offset], RCMM_SPACE+RCMM_INCREMENT)) {
+		data = (data << 2) | 1;
+    } 
+    else if (MATCH_SPACE(results->rawbuf[offset], RCMM_SPACE+2*RCMM_INCREMENT)) {
+		data = (data << 2) | 2;
+    } 
+    else if (MATCH_SPACE(results->rawbuf[offset], RCMM_SPACE+3*RCMM_INCREMENT)) {
+		data = (data << 2) | 3;
+    } 
+    else {
+      return ERR;
+    }
+    offset++;
+  }
+  if (!MATCH_MARK(results->rawbuf[offset], RCMM_MARK)) {
+    return ERR;
+  }
+
+  // Success
+  results->bits = (offset - 3);
+  if (results->bits < RCMM_BITS) {
+    results->bits = 0;
+    return ERR;
+  }
+  results->value = data;
+  results->decode_type = RCMM;
+  return DECODED;
 }
 
 /* -----------------------------------------------------------------------
