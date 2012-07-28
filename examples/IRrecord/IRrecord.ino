@@ -133,6 +133,11 @@ void sendCode(int repeat) {
       Serial.println(codeValue, HEX);
     }
   } 
+  else if (codeType == RCMM) {
+    irsend.sendRCMM(codeValue, codeLen);
+    Serial.print("Sent RCMM ");
+    Serial.println(codeValue, HEX);
+  } 
   else if (codeType == UNKNOWN /* i.e. raw */) {
     // Assume 38 KHz
     irsend.sendRaw(rawCodes, codeLen, 38);
