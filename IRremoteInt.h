@@ -12,7 +12,7 @@
  *
  * JVC and Panasonic protocol added by Kristian Lauszus (Thanks to zenwheel and other people at the original blog post)
  *
- * Protocol for Cisco 8685DVB added by Matthias Neeracher.
+ * RC-MM protocol added by Matthias Neeracher.
  */
 
 #ifndef IRremoteint_h
