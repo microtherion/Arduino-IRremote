@@ -19,6 +19,32 @@
 // Provides ISR
 #include <avr/interrupt.h>
 
+#if SYSCLOCK == 1000000L
+//
+// Built-in delayMicroseconds only works for 16MHz and 8MHz.
+//
+void delayMicroseconds1MHz(unsigned int us)
+{
+	//
+	// IRremote will only call us for sane values anyway
+	//
+	if (us < 20)
+		return;
+
+	// the following loop takes 4 microseconds (4 cycles) per iteration.
+	us >>= 2;
+	us -= 4;
+
+	// busy wait
+	__asm__ __volatile__ (
+		"1: sbiw %0,1" "\n\t" // 2 cycles
+		"brne 1b" : "=w" (us) : "0" (us) // 2 cycles
+	);
+}
+
+#define delayMicroseconds(x)	delayMicroseconds1MHz(x)
+#endif
+
 volatile irparams_t irparams;
 
 // These versions of MATCH, MATCH_MARK, and MATCH_SPACE are only for debugging.
@@ -249,6 +275,13 @@ void IRsend::space(int time) {
   // Sends an IR space for the specified number of microseconds.
   // A space is no output, so the PWM output is disabled.
   TIMER_DISABLE_PWM; // Disable pin 3 PWM output
+#if F_CPU < 8000000
+  //
+  // At slow clock rates, our bit processing time starts becoming
+  // significant.
+  //
+  time -= 80;
+#endif
   delayMicroseconds(time);
 }
 
