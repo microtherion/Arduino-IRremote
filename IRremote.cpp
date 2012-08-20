@@ -564,17 +564,21 @@ int IRrecv::getRClevel(decode_results *results, int *offset, int *used, int t1) 
   int val = ((*offset) % 2) ? MARK : SPACE;
   int correction = (val == MARK) ? MARK_EXCESS : - MARK_EXCESS;
 
-  int avail;
+  //
+  // Due to the tolerances we allow, results may be ambiguous. We resolve this
+  // in favor of the shorter range for SPACE, the longer range for MARK.
+  //
+  int avail = -1;
   if (MATCH(width, t1 + correction)) {
     avail = 1;
   } 
-  else if (MATCH(width, 2*t1 + correction)) {
+  if (((avail < 0) || (val == MARK)) && MATCH(width, 2*t1 + correction)) {
     avail = 2;
   } 
-  else if (MATCH(width, 3*t1 + correction)) {
+  if (((avail < 0) || (val == MARK)) && MATCH(width, 3*t1 + correction)) {
     avail = 3;
   } 
-  else {
+  if (avail < 0) {
     return -1;
   }
 
