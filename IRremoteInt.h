@@ -4,7 +4,7 @@
  * Copyright 2009 Ken Shirriff
  * For details, see http://arcfn.com/2009/08/multi-protocol-infrared-remote-library.html
  *
- * Modified by Paul Stoffregen <paul@pjrc.com> to support other boards and timers
+ * Modified by Paul Stoffregen <paul@pjrc.com> and Matthias Neeracher <neeracher@mac.com> to support other boards and timers
  *
  * Interrupt code based on NECIRrcv by Joe Knapp
  * http://www.arduino.cc/cgi-bin/yabb2/YaBB.pl?num=1210243556
@@ -58,6 +58,10 @@
 #elif defined(__AVR_ATmega644P__) || defined(__AVR_ATmega644__)
   //#define IR_USE_TIMER1   // tx = pin 13
   #define IR_USE_TIMER2     // tx = pin 14
+
+// Tested with ATtiny85, presumably works with ATtiny45, possibly with ATtiny25
+#elif defined(__AVR_ATtiny45__) || defined(__AVR_ATtiny85__)
+  #define IR_USE_TIMER1_TINY	// tx = pin 4 (OC1B)
 
 // Arduino Duemilanove, Diecimila, LilyPad, Mini, Fio, etc
 #else
@@ -267,6 +271,52 @@ extern volatile irparams_t irparams;
 #else
 #define TIMER_PWM_PIN        9  /* Arduino Duemilanove, Diecimila, LilyPad, etc */
 #endif
+
+
+// defines for timer1 on ATtiny (8 bits), no phase-correct PWM
+#elif defined(IR_USE_TIMER1_TINY)
+#define TIMER_RESET
+#define TIMER_ENABLE_PWM   (GTCCR |= _BV(COM1B1))
+#define TIMER_DISABLE_PWM  (GTCCR &= ~_BV(COM1B1))
+#define TIMER_ENABLE_INTR  (TIMSK |= _BV(OCIE1B))
+#define TIMER_DISABLE_INTR (TIMSK &= ~_BV(OCIE1B))
+#define TIMER_INTR_NAME    TIMER1_COMPB_vect
+#if SYSCLOCK <= 8000000
+#define TIMER_CONFIG_KHZ(val) ({ \
+  const uint8_t pwmval = SYSCLOCK / 1000 / (val); \
+  TCCR1	= _BV(CS10);							  \
+  GTCCR = _BV(PWM1B); \
+  OCR1C = pwmval; \
+  OCR1B = pwmval / 3; \
+})
+#else
+#define TIMER_CONFIG_KHZ(val) ({ \
+  const uint8_t pwmval = SYSCLOCK / 4000 / (val); \
+  TCCR1	= _BV(CS11) | _BV(CS10); \
+  GTCCR = _BV(PWM1B); \
+  OCR1C = pwmval; \
+  OCR1B = pwmval / 3; \
+})
+#endif
+#define TIMER_COUNT_TOP      (SYSCLOCK * USECPERTICK / 1000000)
+#if (TIMER_COUNT_TOP < 256)
+#define TIMER_CONFIG_NORMAL() ({ \
+  TCCR1	= _BV(CTC1) | _BV(CS10);	 \
+  GTCCR = 0; \
+  OCR1C = TIMER_COUNT_TOP; \
+  OCR1B = TIMER_COUNT_TOP; \
+  TCNT1 = 0; \
+})
+#else
+#define TIMER_CONFIG_NORMAL() ({ \
+  TCCR1	= _BV(CTC1) | _BV(CS11) | _BV(CS10);	\
+  GTCCR = 0; \
+  OCR1C = TIMER_COUNT_TOP / 8; \
+  OCR1B = TIMER_COUNT_TOP / 8; \
+  TCNT1 = 0; \
+})
+#endif
+#define TIMER_PWM_PIN        4  
 
 
 // defines for timer3 (16 bits)
