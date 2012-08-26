@@ -309,7 +309,7 @@ extern volatile irparams_t irparams;
 })
 #else
 #define TIMER_CONFIG_NORMAL() ({ \
-  TCCR1	= _BV(CTC1) | _BV(CS11) | _BV(CS10);	\
+  TCCR1	= _BV(CTC1) | _BV(CS12);	\
   GTCCR = 0; \
   OCR1C = TIMER_COUNT_TOP / 8; \
   OCR1B = TIMER_COUNT_TOP / 8; \
