@@ -18,34 +18,38 @@
 
 // Provides ISR
 #include <avr/interrupt.h>
+#include <util/delay_basic.h>
 
-#if SYSCLOCK == 1000000L
+#if defined(__AVR_ATtiny45__) || defined(__AVR_ATtiny85__)
+#define IS_AVTINY
+#endif
+
+#define MIN(x,y) (x < y ? x : y)
+#define UINT16_MAX	0xFFFFUL
+
+volatile irparams_t irparams;
+
+#if SYSCLOCK != 8000000L && SYSCLOCK != 16000000L
 //
 // Built-in delayMicroseconds only works for 16MHz and 8MHz.
 //
-void delayMicroseconds1MHz(unsigned int us)
-{
-	//
-	// IRremote will only call us for sane values anyway
-	//
-	if (us < 20)
-		return;
-
-	// the following loop takes 4 microseconds (4 cycles) per iteration.
-	us >>= 2;
-	us -= 4;
-
-	// busy wait
-	__asm__ __volatile__ (
-		"1: sbiw %0,1" "\n\t" // 2 cycles
-		"brne 1b" : "=w" (us) : "0" (us) // 2 cycles
-	);
+#define USE_CYCLE_BASED_TIMINGS
+void IRsend::mark(int time) {
+  // Sends an IR mark for the specified number of microseconds.
+  // The mark output is modulated at the PWM frequency.
+  TIMER_ENABLE_PWM; // Enable pin 3 PWM output
 }
 
-#define delayMicroseconds(x)	delayMicroseconds1MHz(x)
+/* Leave pin off for time (given in microseconds) */
+void IRsend::space(int time) {
+  // Sends an IR space for the specified number of microseconds.
+  // A space is no output, so the PWM output is disabled.
+  TIMER_DISABLE_PWM; // Disable pin 3 PWM output
+}
+#define US_TO_ITER(x) uint16_t(((x)*(SYSCLOCK/1000))/4000)
+#define mark(x)  do { this->mark ((x)); _delay_loop_2(US_TO_ITER(x)); } while (0)
+#define space(x) do { this->space ((x)); _delay_loop_2(US_TO_ITER(x)); } while (0)
 #endif
-
-volatile irparams_t irparams;
 
 // These versions of MATCH, MATCH_MARK, and MATCH_SPACE are only for debugging.
 // To use them, set DEBUG in IRremoteInt.h
@@ -263,6 +267,7 @@ void IRsend::sendRCMM(unsigned long data, int nbits)
 	space(0);
 }
 
+#ifndef USE_CYCLE_BASED_TIMINGS
 void IRsend::mark(int time) {
   // Sends an IR mark for the specified number of microseconds.
   // The mark output is modulated at the PWM frequency.
@@ -284,6 +289,7 @@ void IRsend::space(int time) {
 #endif
   delayMicroseconds(time);
 }
+#endif
 
 void IRsend::enableIROut(int khz) {
   // Enables IR output.  The khz value controls the modulation frequency in kilohertz.
