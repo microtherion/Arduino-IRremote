@@ -327,22 +327,17 @@ IRrecv::IRrecv(int recvpin)
 // initialization
 void IRrecv::enableIRIn() {
   cli();
-  // setup pulse clock timer interrupt
-  //Prescale /8 (16M/8 = 0.5 microseconds per tick)
-  // Therefore, the timer interval can range from 0.5 to 128 microseconds
-  // depending on the reset value (255 to 0)
-  TIMER_CONFIG_NORMAL();
-
-  //Timer2 Overflow Interrupt Enable
-  TIMER_ENABLE_INTR;
-
-  TIMER_RESET;
-
-  sei();  // enable interrupts
+  if (digitalPinToPCICR(irparams.recvpin))
+  {
+      *digitalPinToPCICR(irparams.recvpin) |= _BV(digitalPinToPCICRbit(irparams.recvpin));
+      *digitalPinToPCMSK(irparams.recvpin) |= _BV(digitalPinToPCMSKbit(irparams.recvpin));
+  }
 
   // initialize state machine variables
-  irparams.rcvstate = STATE_IDLE;
-  irparams.rawlen = 0;
+  irparams.rcvstate 	= STATE_IDLE;
+  irparams.rawlen 		= 0;
+  irparams.startTime	= micros();
+  sei();  // enable interrupts
 
   // set pin modes
   pinMode(irparams.recvpin, INPUT);
@@ -363,13 +358,16 @@ void IRrecv::blink13(int blinkflag)
 // First entry is the SPACE between transmissions.
 // As soon as a SPACE gets long, ready is set, state switches to IDLE, timing of SPACE continues.
 // As soon as first MARK arrives, gap width is recorded, ready is cleared, and new logging starts
-ISR(TIMER_INTR_NAME)
+void handle_interrupt()
 {
-  TIMER_RESET;
-
-  uint8_t irdata = (uint8_t)digitalRead(irparams.recvpin);
-
-  irparams.timer++; // One more 50us tick
+  uint8_t 	irdata = (uint8_t)digitalRead(irparams.recvpin);
+  uint32_t	now    = micros();
+  uint32_t	elapsed;
+  if (now < irparams.startTime)
+	  elapsed = now+1+(0xFFFFFFFF-irparams.startTime);
+  else
+	  elapsed = now-irparams.startTime;
+  elapsed /= USECPERTICK;
   if (irparams.rawlen >= RAWBUF) {
     // Buffer overflow
     irparams.rcvstate = STATE_STOP;
@@ -377,34 +375,33 @@ ISR(TIMER_INTR_NAME)
   switch(irparams.rcvstate) {
   case STATE_IDLE: // In the middle of a gap
     if (irdata == MARK) {
-      if (irparams.timer < GAP_TICKS) {
-        // Not big enough to be a gap.
-        irparams.timer = 0;
-      } 
-      else {
+	  if (elapsed < GAP_TICKS) {
+		// Not big enough to be a gap.
+		irparams.startTime = now;
+	  } else {
         // gap just ended, record duration and start recording transmission
         irparams.rawlen = 0;
-        irparams.rawbuf[irparams.rawlen++] = irparams.timer;
-        irparams.timer = 0;
+        irparams.rawbuf[irparams.rawlen++] = MIN(elapsed, UINT16_MAX);
+        irparams.startTime = now;
         irparams.rcvstate = STATE_MARK;
       }
     }
     break;
   case STATE_MARK: // timing MARK
     if (irdata == SPACE) {   // MARK ended, record time
-      irparams.rawbuf[irparams.rawlen++] = irparams.timer;
-      irparams.timer = 0;
+      irparams.rawbuf[irparams.rawlen++] = MIN(elapsed, UINT16_MAX);
+      irparams.startTime = now;
       irparams.rcvstate = STATE_SPACE;
     }
     break;
   case STATE_SPACE: // timing SPACE
     if (irdata == MARK) { // SPACE just ended, record it
-      irparams.rawbuf[irparams.rawlen++] = irparams.timer;
-      irparams.timer = 0;
+      irparams.rawbuf[irparams.rawlen++] = MIN(elapsed, UINT16_MAX);
+      irparams.startTime = now;
       irparams.rcvstate = STATE_MARK;
     } 
     else { // SPACE
-      if (irparams.timer > GAP_TICKS) {
+      if (elapsed > GAP_TICKS) {
         // big SPACE, indicates gap between codes
         // Mark current code as ready for processing
         // Switch to STOP
@@ -415,7 +412,7 @@ ISR(TIMER_INTR_NAME)
     break;
   case STATE_STOP: // waiting, measuring gap
     if (irdata == MARK) { // reset gap timer
-      irparams.timer = 0;
+      irparams.startTime = now;
     }
     break;
   }
@@ -435,12 +432,42 @@ void IRrecv::resume() {
   irparams.rawlen = 0;
 }
 
+#if defined(PCINT0_vect)
+ISR(PCINT0_vect)
+{
+  handle_interrupt();
+}
+#endif
+
+#if defined(PCINT1_vect)
+ISR(PCINT1_vect)
+{
+  handle_interrupt();
+}
+#endif
+
+#if defined(PCINT2_vect)
+ISR(PCINT2_vect)
+{
+  handle_interrupt();
+}
+#endif
+
+#if defined(PCINT3_vect)
+ISR(PCINT3_vect)
+{
+  handle_interrupt();
+}
+#endif
 
 
 // Decodes the received IR message
 // Returns 0 if no data ready, 1 if data ready.
 // Results of decoding are stored in results
 int IRrecv::decode(decode_results *results) {
+  cli();
+  handle_interrupt();
+  sei();
   results->rawbuf = irparams.rawbuf;
   results->rawlen = irparams.rawlen;
   if (irparams.rcvstate != STATE_STOP) {

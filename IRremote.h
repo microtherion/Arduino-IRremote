@@ -22,7 +22,7 @@
 // TEST must be defined for the IRtest unittests to work.  It will make some
 // methods virtual, which will be slightly slower, which is why it is optional.
 // #define DEBUG
-#define TEST
+//#define TEST
 
 // Results returned from the decoder
 class decode_results {
@@ -105,7 +105,7 @@ public:
 
 // Some useful constants
 
-#define USECPERTICK 50  // microseconds per clock interrupt tick
+#define USECPERTICK 8  // microseconds per clock interrupt tick
 #define RAWBUF 100 // Length of raw duration buffer
 
 // Marks tend to be 100us too long, and spaces 100us too short
