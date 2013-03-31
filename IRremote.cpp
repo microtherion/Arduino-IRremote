@@ -466,30 +466,35 @@ int IRrecv::decode(decode_results *results) {
   if (irparams.rcvstate != STATE_STOP) {
     return ERR;
   }
+#ifndef IS_AVTINY
 #ifdef DEBUG
   Serial.println("Attempting NEC decode");
 #endif
   if (decodeNEC(results)) {
     return DECODED;
   }
+#endif
 #ifdef DEBUG
   Serial.println("Attempting Sony decode");
 #endif
   if (decodeSony(results)) {
     return DECODED;
   }
+#ifndef IS_AVTINY
 #ifdef DEBUG
   Serial.println("Attempting RC5 decode");
 #endif  
   if (decodeRC5(results)) {
     return DECODED;
   }
+#endif
 #ifdef DEBUG
   Serial.println("Attempting RC6 decode");
 #endif 
   if (decodeRC6(results)) {
     return DECODED;
   }
+#ifndef IS_AVTINY
 #ifdef DEBUG
     Serial.println("Attempting Panasonic decode");
 #endif 
@@ -508,6 +513,7 @@ int IRrecv::decode(decode_results *results) {
     if (decodeRCMM(results)) {
         return DECODED;
     }
+#endif
   // decodeHash returns a hash on any input.
   // Thus, it needs to be last in the list.
   // If you add any decodes, add them before this.
