@@ -60,9 +60,15 @@
   #define IR_USE_TIMER2     // tx = pin 14
 
 // Tested with ATtiny85, presumably works with ATtiny45, possibly with ATtiny25
+// The attiny core uses Timer 0 for millis() etc., so using timer 1 is advisable
+// for IR out. Pin 4 also conveniently is not used in any role for ISP.
+// The Arduino-tiny core uses Timer 1 for millis(), so using timer 0 is advisable
+// for IR out. Pin 0 is used by default for IR out in the Tinyspark IR shield, but 
+// is not usable for PWM waveforms where the frequency, not just the duty cycle,
+// needs to be controlled.
 #elif defined(__AVR_ATtiny45__) || defined(__AVR_ATtiny85__)
-  #define IR_USE_TIMER1_TINY	// tx = pin 4 (OC1B)
-
+// #define IR_USE_TIMER1_TINY	// tx = pin 4 (OC1B)
+  #define IR_USE_TIMER0			// tx = pin 1 (OC0B)
 // Arduino Duemilanove, Diecimila, LilyPad, Mini, Fio, etc
 #else
   //#define IR_USE_TIMER1   // tx = pin 9
@@ -319,6 +325,45 @@ extern volatile irparams_t irparams;
 #define TIMER_PWM_PIN        4  
 
 
+// defines for timer0 (8 bits). Tested on ATtiny85, may also work on other 
+// processors, but most of them use Timer 0 to keep system time
+#elif defined(IR_USE_TIMER0)
+#define TIMER_RESET
+#define TIMER_ENABLE_PWM     (TCCR0A |= _BV(COM0B1))
+#define TIMER_DISABLE_PWM    (TCCR0A &= ~(_BV(COM0B1)))
+#define TIMER_ENABLE_INTR    (TIMSK = _BV(OCIE0A))
+#define TIMER_DISABLE_INTR   (TIMSK = 0)
+#define TIMER_INTR_NAME      TIMER0_COMPA_vect
+#define TIMER_CONFIG_KHZ(val) ({ \
+  const uint8_t pwmval = SYSCLOCK / 2000 / (val); \
+  TCCR0A = _BV(WGM00); \
+  TCCR0B = _BV(WGM02) | _BV(CS00); \
+  OCR0A = pwmval; \
+  OCR0B = pwmval / 3; \
+})
+#define TIMER_COUNT_TOP      (SYSCLOCK * USECPERTICK / 1000000)
+#if (TIMER_COUNT_TOP < 256)
+#define TIMER_CONFIG_NORMAL() ({ \
+  TCCR2A = _BV(WGM01); \
+  TCCR2B = _BV(CS00); \
+  OCR2A = TIMER_COUNT_TOP; \
+  TCNT2 = 0; \
+})
+#else
+#define TIMER_CONFIG_NORMAL() ({ \
+  TCCR2A = _BV(WGM01); \
+  TCCR2B = _BV(CS01); \
+  OCR2A = TIMER_COUNT_TOP / 8; \
+  TCNT2 = 0; \
+})
+#endif
+#if defined(CORE_OC0A_PIN)
+#define TIMER_PWM_PIN        CORE_OC0B_PIN 
+#else
+#define TIMER_PWM_PIN        1  /* Attiny core */
+#endif
+
+
 // defines for timer3 (16 bits)
 #elif defined(IR_USE_TIMER3)
 #define TIMER_RESET
@@ -465,6 +510,10 @@ extern volatile irparams_t irparams;
 #define BLINKLED       0
 #define BLINKLED_ON()  (PORTD |= B00000001)
 #define BLINKLED_OFF() (PORTD &= B11111110)
+#elif defined(__AVR_ATtiny45__) || defined(__AVR_ATtiny85__)
+#define BLINKLED       4
+#define BLINKLED_ON()  (PORTB |= B00001000)
+#define BLINKLED_OFF() (PORTB &= B11110110)
 #else
 #define BLINKLED       13
 #define BLINKLED_ON()  (PORTB |= B00100000)
